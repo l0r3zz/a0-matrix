@@ -38,6 +38,8 @@ services:
     image: a0-matrix-bot:${BOT_VERSION:-latest}
     container_name: ${INSTANCE_NAME:-a0}-matrix-bot
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file: .env
     environment:
       - MATRIX_HOMESERVER_URL=${MATRIX_HOMESERVER_URL}
