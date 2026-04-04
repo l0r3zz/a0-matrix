@@ -1,0 +1,73 @@
+# =============================================================================
+# a0-matrix — Build & Publish Matrix Bot Image
+# Triggers on version tags and manual dispatch.
+# Uses --provenance=false for maximum Docker client compatibility.
+# =============================================================================
+name: Publish Matrix Bot
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag (e.g. 0.2.0)'
+        required: false
+        default: 'latest'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/a0-matrix-bot
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version from tag
+        id: meta
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/v}"
+          fi
+          echo "version=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push bot image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./matrix-bot
+          file: ./matrix-bot/Dockerfile
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          sbom: false
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Verify anonymous pull
+        run: |
+          docker logout ${{ env.REGISTRY }} || true
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          echo "✅ Anonymous pull succeeded"

@@ -1,0 +1,63 @@
+# =============================================================================
+# a0-matrix — Re-push MCP Server Image (Compatibility Fix)
+# Pulls the existing OCI image via skopeo and re-pushes as a plain
+# Docker v2 manifest so ALL Docker client versions can pull it.
+#
+# NOTE: This workflow is for the a0-matrix repo. It re-tags the
+# pre-built image from ghcr.io/l0r3zz/matrix-mcp-server-r2.
+# If you maintain the MCP server source separately, copy the
+# build-and-push job from publish-bot.yml into that repo instead.
+# =============================================================================
+name: Fix MCP Server Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_tag:
+        description: 'Source tag to re-push (e.g. latest, 0.1.1)'
+        required: false
+        default: 'latest'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/matrix-mcp-server-r2
+
+jobs:
+  re-push-compatible:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install skopeo
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq skopeo
+
+      - name: Pull OCI image via skopeo and re-push as Docker v2
+        run: |
+          TAG="${{ github.event.inputs.source_tag }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+
+          echo "Copying ${IMAGE}:${TAG} via skopeo (OCI → Docker v2)..."
+          skopeo copy \
+            --override-os linux --override-arch amd64 \
+            --dest-compress \
+            "docker://${IMAGE}:${TAG}" \
+            "docker://${IMAGE}:${TAG}-compat"
+
+          echo "✅ Re-pushed as ${IMAGE}:${TAG}-compat"
+
+      - name: Verify anonymous pull of compat tag
+        run: |
+          docker logout ${{ env.REGISTRY }} || true
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.source_tag }}-compat
+          echo "✅ Anonymous pull of compat tag succeeded"
