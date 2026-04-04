@@ -2,19 +2,21 @@
 # Provides bidirectional Matrix protocol communication for Agent Zero agents.
 
 name: a0_matrix
-title: Matrix Integration
+title: Rust-based full Matrix Protocol Integration
 description: >-
-  Complete Matrix protocol integration for Agent Zero. Provides bidirectional
+  Full-featured Matrix protocol integration for Agent Zero. Derived from
+  The agent-matrix project. This plugin provides full  bidirectional
   communication between Agent Zero agents and the Matrix network via an MCP
   server (outbound) and a Matrix bot (inbound). Supports federation, room
-  management, direct messaging, and multi-agent coordination.
+  management, direct messaging, and multi-agent coordination. Future release
+  to support full E2EE encryption, including rooms
 version: "0.1.0"
-tags:
-  - matrix
-  - messaging
-  - federation
-  - mcp
-  - communication
+#tags:
+#  - matrix
+#  - messaging
+#  - federation
+#  - mcp
+#  - communication
 
 #settings_sections:
  # - matrix_connection
