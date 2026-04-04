@@ -93,13 +93,15 @@ def install():
                 ["docker", "pull", image],
                 capture_output=True, text=True, timeout=300
             )
-
+          
+            container_name = f"a0-matrix-extract-{os.getpid()}"
             # Extract binary from image using three discrete steps
             # Step 1: create a stopped container from the image
             create_result = subprocess.run(
-                ["docker", "create", "--name", "a0-matrix-extract", image],
+                ["docker", "create", "--name", container_name, image],
                 capture_output=True, text=True, timeout=60
             )
+            
             if create_result.returncode != 0:
                 raise RuntimeError(f"docker create failed: {create_result.stderr.strip()}")
 
@@ -107,7 +109,7 @@ def install():
                 # Step 2: copy the binary out of the container
                 cp_result = subprocess.run(
                     ["docker", "cp",
-                     "a0-matrix-extract:/app/matrix-mcp-server-r2",
+                     f"{container_name}/app/matrix-mcp-server-r2",
                      str(mcp_binary)],
                     capture_output=True, text=True, timeout=60
                 )
@@ -116,7 +118,7 @@ def install():
             finally:
                 # Step 3: always remove the temporary container
                 subprocess.run(
-                    ["docker", "rm", "a0-matrix-extract"],
+                    ["docker", "rm", container_name],
                     capture_output=True, text=True, timeout=30
                 )
 
@@ -205,7 +207,7 @@ def uninstall():
     if WORKDIR.exists():
         # Backup .env if it exists
         if ENV_FILE.exists():
-            backup = Path("/a0/usr/workdir/.a0-matrix-env-backup")
+            backup = _A0_WORKDIR / ".a0-matrix-env-backup"
             shutil.copy2(ENV_FILE, backup)
             print(f"[a0-matrix] Backed up .env → {backup}")
 
