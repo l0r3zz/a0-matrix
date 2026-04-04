@@ -11,13 +11,18 @@ import shutil
 import subprocess
 import json
 from pathlib import Path
-
 # Plugin paths
 PLUGIN_DIR = Path(__file__).parent
-WORKDIR = Path("/a0/usr/workdir/a0-matrix")
-BIN_DIR = WORKDIR / "bin"
+
+# Derive the Agent Zero workdir dynamically.
+# Priority:
+#   1. A0_WORKDIR env var (set by custom or non-standard deployments)
+#   2. Standard Agent Zero default: /a0/usr/workdir
+_A0_WORKDIR = Path(os.environ.get("A0_WORKDIR", "/a0/usr/workdir"))
+WORKDIR = _A0_WORKDIR / "a0-matrix"
+BIN_DIR  = WORKDIR / "bin"
 DATA_DIR = WORKDIR / "data"
-LOG_DIR = WORKDIR / "logs"
+LOG_DIR  = WORKDIR / "logs"
 ENV_FILE = WORKDIR / ".env"
 
 # GHCR image for the MCP server
