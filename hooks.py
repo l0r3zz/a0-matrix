@@ -47,7 +47,7 @@ def install():
     if env_example.exists() and not ENV_FILE.exists():
         shutil.copy2(env_example, ENV_FILE)
         print(f"[a0-matrix] Copied .env.example → {ENV_FILE}")
-        print("[a0-matrix] ⚠️  Edit {ENV_FILE} with your Matrix credentials before starting!")
+        print(f"[a0-matrix] ⚠️  Edit {ENV_FILE} with your Matrix credentials before starting!")
     elif ENV_FILE.exists():
         print(f"[a0-matrix] .env already exists at {ENV_FILE}, skipping")
 
@@ -88,24 +88,44 @@ def install():
                 ["docker", "pull", image],
                 capture_output=True, text=True, timeout=300
             )
-            # Extract binary from image
-            extract_cmd = (
-                f"docker create --name a0-matrix-extract {image} && "
-                f"docker cp a0-matrix-extract:/app/matrix-mcp-server-r2 {mcp_binary} && "
-                f"docker rm a0-matrix-extract"
-            )
-            result = subprocess.run(
-                extract_cmd, shell=True,
+
+            # Extract binary from image using three discrete steps
+            # Step 1: create a stopped container from the image
+            create_result = subprocess.run(
+                ["docker", "create", "--name", "a0-matrix-extract", image],
                 capture_output=True, text=True, timeout=60
             )
-            if result.returncode == 0 and mcp_binary.exists():
+            if create_result.returncode != 0:
+                raise RuntimeError(f"docker create failed: {create_result.stderr.strip()}")
+
+            try:
+                # Step 2: copy the binary out of the container
+                cp_result = subprocess.run(
+                    ["docker", "cp",
+                     "a0-matrix-extract:/app/matrix-mcp-server-r2",
+                     str(mcp_binary)],
+                    capture_output=True, text=True, timeout=60
+                )
+                if cp_result.returncode != 0:
+                    raise RuntimeError(f"docker cp failed: {cp_result.stderr.strip()}")
+            finally:
+                # Step 3: always remove the temporary container
+                subprocess.run(
+                    ["docker", "rm", "a0-matrix-extract"],
+                    capture_output=True, text=True, timeout=30
+                )
+
+            if mcp_binary.exists():
                 mcp_binary.chmod(0o755)
                 print(f"[a0-matrix] ✅ MCP server binary extracted → {mcp_binary}")
             else:
-                print(f"[a0-matrix] ⚠️  Could not extract binary: {result.stderr}")
+                print("[a0-matrix] ⚠️  Binary not found after extraction")
                 print("[a0-matrix] MCP server will need to be run via docker-compose")
         else:
             print("[a0-matrix] Docker not available; MCP server needs manual setup")
+    except RuntimeError as e:
+        print(f"[a0-matrix] ⚠️  Could not extract binary: {e}")
+        print("[a0-matrix] MCP server will need to be run via docker-compose")
     except (subprocess.TimeoutExpired, FileNotFoundError) as e:
         print(f"[a0-matrix] Docker extraction skipped: {e}")
         print("[a0-matrix] You can run the MCP server via docker-compose or install manually")
