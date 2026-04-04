@@ -1,0 +1,27 @@
+# Runtime data
+*.pid
+*.log
+data/
+logs/
+/bin/
+
+# Environment (contains secrets)
+.env
+
+# Rust build artifacts
+matrix-bot/rust/target/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Research/temp files
+fetched-sources.md
+*.bak
+*.tmp

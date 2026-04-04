@@ -1,0 +1,67 @@
+# =============================================================================
+# a0-matrix — External Deployment Model
+# Run MCP server and Matrix bot as containers alongside Agent Zero.
+# For embedded (in-container) deployment, use scripts/install.sh instead.
+# =============================================================================
+
+name: a0-matrix
+
+services:
+  # --- MATRIX MCP SERVER (Outbound: Agent Zero → Matrix) ---
+  matrix-mcp-server:
+    image: ghcr.io/l0r3zz/matrix-mcp-server-r2:${MCP_SERVER_VERSION:-latest}
+    container_name: ${INSTANCE_NAME:-a0}-matrix-mcp
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - PORT=${MCP_PORT:-3000}
+      - MATRIX_HOMESERVER_URL=${MATRIX_HOMESERVER_URL}
+      - MATRIX_USER_ID=${MATRIX_USER_ID}
+      - MATRIX_ACCESS_TOKEN=${MATRIX_ACCESS_TOKEN}
+      - RUST_LOG=${RUST_LOG:-info}
+    ports:
+      - "${MCP_PORT:-3000}:${MCP_PORT:-3000}"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${MCP_PORT:-3000}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - a0-matrix
+
+  # --- MATRIX BOT (Inbound: Matrix → Agent Zero) ---
+  matrix-bot:
+    build:
+      context: ./matrix-bot
+      dockerfile: Dockerfile
+    image: a0-matrix-bot:${BOT_VERSION:-latest}
+    container_name: ${INSTANCE_NAME:-a0}-matrix-bot
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - MATRIX_HOMESERVER_URL=${MATRIX_HOMESERVER_URL}
+      - MATRIX_USER_ID=${MATRIX_USER_ID}
+      - MATRIX_ACCESS_TOKEN=${MATRIX_ACCESS_TOKEN}
+      - MATRIX_DEVICE_ID=${MATRIX_DEVICE_ID:-AgentZeroBot}
+      - A0_API_URL=${A0_API_URL:-http://host.docker.internal:80/api_message}
+      - A0_API_KEY=${A0_API_KEY:-}
+      - BOT_DISPLAY_NAME=${BOT_DISPLAY_NAME:-Agent Zero}
+      - AGENT_IDENTITY=${AGENT_IDENTITY:-Agent Zero}
+      - SYNC_TIMEOUT_MS=${SYNC_TIMEOUT_MS:-30000}
+      - TRIGGER_PREFIX=${TRIGGER_PREFIX:-}
+      - RUST_LOG=${RUST_LOG:-info}
+    volumes:
+      - bot-data:/app/data
+    depends_on:
+      matrix-mcp-server:
+        condition: service_healthy
+    networks:
+      - a0-matrix
+
+volumes:
+  bot-data:
+
+networks:
+  a0-matrix:
+    driver: bridge

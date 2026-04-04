@@ -1,0 +1,138 @@
+# a0-matrix — Agent Zero Matrix Integration Plugin
+# Provides bidirectional Matrix protocol communication for Agent Zero agents.
+
+name: a0_matrix
+title: Matrix Integration
+description: >-
+  Complete Matrix protocol integration for Agent Zero. Provides bidirectional
+  communication between Agent Zero agents and the Matrix network via an MCP
+  server (outbound) and a Matrix bot (inbound). Supports federation, room
+  management, direct messaging, and multi-agent coordination.
+version: "0.1.0"
+author: l0r3zz
+license: MIT
+repository: https://github.com/l0r3zz/a0-matrix
+category: communication
+
+tags:
+  - matrix
+  - messaging
+  - federation
+  - mcp
+  - communication
+
+settings_sections: matrix_connection, bot_settings, mcp_server
+per_project_config: false
+per_agent_config: true
+always_enabled: false
+
+dependencies:
+  agent_zero:
+    min_version: "1.0.0"
+  tools_required:
+    - code_execution_tool
+  optional:
+    - call_subordinate
+
+environment:
+  os:
+    - linux
+    - docker
+  runtime:
+    - docker-compose
+
+installation:
+  type: docker
+  commands:
+    - "docker compose -f $PLUGIN_DIR/docker-compose.yml pull"
+    - "docker compose -f $PLUGIN_DIR/docker-compose.yml build"
+
+configuration:
+  variables:
+    - name: MATRIX_HOMESERVER_URL
+      description: "Matrix homeserver URL (e.g., http://localhost:8008 or https://matrix.example.com)"
+      required: true
+    - name: MATRIX_USER_ID
+      description: "Bot's Matrix user ID (e.g., @agent:example.com)"
+      required: true
+    - name: MATRIX_ACCESS_TOKEN
+      description: "Matrix access token for authentication"
+      required: true
+    - name: MATRIX_DEVICE_ID
+      description: "Device ID for the Matrix session"
+      default: "AgentZeroBot"
+      required: false
+    - name: A0_API_URL
+      description: "Agent Zero API endpoint for the bot to forward messages"
+      default: "http://localhost:80/api_message"
+      required: false
+    - name: A0_API_KEY
+      description: "Agent Zero API key for authentication"
+      default: ""
+      required: false
+    - name: BOT_DISPLAY_NAME
+      description: "Display name shown in Matrix rooms"
+      default: "Agent Zero"
+      required: false
+    - name: MCP_PORT
+      description: "Port for the MCP server HTTP endpoint"
+      default: "3000"
+      required: false
+
+permissions:
+  required:
+    - terminal_access
+    - network_access
+  optional:
+    - file_system_write
+
+features:
+  - name: "MCP Server (Outbound)"
+    description: >-
+      20 Matrix tools exposed via MCP protocol — rooms, messages, members,
+      profiles, admin, and discovery operations. Agent Zero can proactively
+      interact with Matrix.
+  - name: "Matrix Bot (Inbound)"
+    description: >-
+      Persistent Matrix client that listens for messages, auto-joins rooms,
+      and forwards conversations to Agent Zero. Provides real-time presence
+      in the Matrix network.
+  - name: "Bidirectional Bridge"
+    description: >-
+      Together the MCP server and bot create a complete two-way bridge:
+      humans and agents on Matrix can converse with Agent Zero naturally.
+  - name: "Federation Support"
+    description: >-
+      Works with any Matrix homeserver including federated deployments.
+      Tested with Synapse, Dendrite, and Continuwuity.
+  - name: "Multi-Agent Ready"
+    description: >-
+      Each Agent Zero instance can have its own Matrix identity and homeserver.
+      Supports @-mention triggers and per-room context persistence.
+
+usage:
+  examples:
+    - title: "Start Matrix services"
+      code: "docker compose -f /a0/usr/workdir/a0-matrix/docker-compose.yml up -d"
+    - title: "Check MCP server health"
+      code: "curl http://localhost:3000/health"
+    - title: "Send a message via MCP"
+      code: "Use matrix.send_message tool in Agent Zero"
+
+troubleshooting:
+  common_issues:
+    - problem: "MCP tools return authentication errors"
+      solution: "Verify MATRIX_ACCESS_TOKEN matches in .env and Agent Zero settings.json"
+    - problem: "Bot doesn't respond to messages"
+      solution: "Check bot.log for sync errors; verify MATRIX_HOMESERVER_URL is reachable"
+    - problem: "Federation not working"
+      solution: "Ensure homeserver has TLS on port 8448 and DNS/SRV records are configured"
+
+changelog:
+  - version: "0.1.0"
+    date: "2026-04-03"
+    changes:
+      - "Initial plugin release"
+      - "Matrix MCP server (Rust) with 20 tools via GHCR"
+      - "Matrix bot (Rust) with auto-join, triggers, context persistence"
+      - "Docker Compose orchestration for both services"

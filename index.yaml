@@ -1,0 +1,11 @@
+title: Matrix Integration
+description: >-
+  Complete bidirectional Matrix protocol integration for Agent Zero.
+  MCP server (20 tools) for outbound + Matrix bot for inbound communication.
+github: https://github.com/l0r3zz/a0-matrix
+tags:
+  - matrix
+  - messaging
+  - federation
+  - mcp
+  - communication
