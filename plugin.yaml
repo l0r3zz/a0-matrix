@@ -9,11 +9,6 @@ description: >-
   server (outbound) and a Matrix bot (inbound). Supports federation, room
   management, direct messaging, and multi-agent coordination.
 version: "0.1.0"
-author: l0r3zz
-license: MIT
-repository: https://github.com/l0r3zz/a0-matrix
-category: communication
-
 tags:
   - matrix
   - messaging
@@ -21,7 +16,11 @@ tags:
   - mcp
   - communication
 
-settings_sections: matrix_connection, bot_settings, mcp_server
+settings_sections:
+  - matrix_connection
+  - bot_settings
+  - mcp_server
+  
 per_project_config: false
 per_agent_config: true
 always_enabled: false
