@@ -24,8 +24,8 @@ RUN mkdir -p src/bin && \
 # Copy real source
 COPY rust/src/ ./src/
 
-# Build release binaries
-RUN cargo build --release
+# Force cargo to detect changed source files and rebuild (not reuse dummy binary)
+RUN find src -name '*.rs' -exec touch {} + && cargo build --release
 
 # --- Stage 2: Runtime ---
 FROM debian:bookworm-slim
