@@ -16,10 +16,10 @@ tags:
   - mcp
   - communication
 
-settings_sections:
-  - matrix_connection
-  - bot_settings
-  - mcp_server
+#settings_sections:
+ # - matrix_connection
+  #- bot_settings
+  #- mcp_server
   
 per_project_config: false
 per_agent_config: true
