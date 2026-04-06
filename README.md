@@ -103,11 +103,12 @@ In Agent Zero **Settings → MCP/A2A**, add the Matrix MCP server:
 {
   "mcpServers": {
     "matrix": {
+      "type": "streamable-http",
       "url": "http://localhost:3000/mcp",
       "headers": {
-        "matrix_access_token": "your_token_here",
-        "matrix_homeserver_url": "https://your-homeserver.example.com",
-        "matrix_user_id": "@your-bot:example.com"
+        "matrix_access_token": "<your_access_token",
+        "matrix_homeserver_url": "https://example.org",
+        "matrix_user_id": "@your-id:example.org"
       }
     }
   }
