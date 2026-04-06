@@ -47,8 +47,12 @@ done
 mkdir -p "$LOG_DIR" "$DATA_DIR"
 
 # --- Start MCP Server ---
-MCP_BINARY="$BIN_DIR/matrix-mcp-server"
+MCP_BINARY="$BIN_DIR/matrix-mcp-server-r2"
 MCP_PID_FILE="$PID_DIR/mcp.pid"
+if [[ ! -f "$MCP_BINARY" ]]; then
+    warn "MCP server not found"
+    exit 1
+fi
 
 if [[ -f "$MCP_PID_FILE" ]] && kill -0 "$(cat "$MCP_PID_FILE")" 2>/dev/null; then
     warn "MCP server already running (PID $(cat "$MCP_PID_FILE"))"
