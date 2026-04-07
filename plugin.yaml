@@ -1,7 +1,7 @@
 # a0-matrix — Agent Zero Matrix Integration Plugin
 # Provides bidirectional Matrix protocol communication for Agent Zero agents.
 
-name: a0_matrix
+name: a0_matrix-mcp
 title: Rust-based full Matrix Protocol Integration
 description: >-
   Full-featured Matrix protocol integration for Agent Zero. Derived from
