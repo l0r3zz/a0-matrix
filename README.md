@@ -22,7 +22,7 @@ Complete **bidirectional Matrix protocol integration** for [Agent Zero](https://
 │                          ┌──────┴──────┐    │            │
 │                          │  matrix-bot │    │            │
 │                          │   (Rust)    │    │            │
-│                          └──────┬──────┘    │            │
+│                          └──────┴──────┘    │            │
 └─────────────────────────────────┼───────────┼────────────┘
                                   │           │
                           Matrix CS API    Matrix CS API
@@ -44,12 +44,14 @@ Complete **bidirectional Matrix protocol integration** for [Agent Zero](https://
 
 ### Two Complementary Components
 
-| Component | Direction | Role |
-|-----------|-----------|------|
-| **matrix-mcp-server** | Agent Zero → Matrix | 20 MCP tools for rooms, messages, members, profiles, admin, discovery |
-| **matrix-bot** | Matrix → Agent Zero | Listens for messages, auto-joins rooms, forwards to Agent Zero API |
+| Component | Direction | Role | Source |
+|-----------|-----------|------|--------|
+| **matrix-mcp-server** | Agent Zero → Matrix | 20 MCP tools for rooms, messages, members, profiles, admin, discovery | [matrix-mcp-server-r2](https://github.com/l0r3zz/matrix-mcp-server-r2) |
+| **matrix-bot** | Matrix → Agent Zero | Listens for messages, auto-joins rooms, forwards to Agent Zero API | [agent-matrix](https://github.com/l0r3zz/agent-matrix) |
 
 Together they create a **complete two-way bridge**: humans and agents on Matrix converse with Agent Zero naturally.
+
+> **No Docker or Rust toolchain required.** Pre-built binaries are automatically downloaded from GitHub Releases during plugin installation.
 
 ## Quick Start
 
@@ -68,34 +70,37 @@ cd /a0/usr/plugins/
 git clone https://github.com/l0r3zz/a0-matrix.git
 ```
 
+During installation, `hooks.py` automatically downloads the pre-built binaries:
+- `matrix-mcp-server-r2` — from [matrix-mcp-server-r2 releases](https://github.com/l0r3zz/matrix-mcp-server-r2/releases)
+- `matrix-bot-rust` — from [agent-matrix releases](https://github.com/l0r3zz/agent-matrix/releases)
+- `set-display-name-rust` — from [agent-matrix releases](https://github.com/l0r3zz/agent-matrix/releases)
+
+If the automatic download fails (e.g., network issues), you can re-run it manually:
+
+```bash
+/a0/usr/workdir/a0-matrix/install.sh
+```
+
 ### 2. Configure
 
 ```bash
 cd /a0/usr/workdir/a0-matrix/
-cp .env.example .env
 # Edit .env with your Matrix credentials:
 #   MATRIX_HOMESERVER_URL=https://your-homeserver.example.com
 #   MATRIX_USER_ID=@your-bot:example.com
 #   MATRIX_ACCESS_TOKEN=your_token_here
+nano .env
 ```
 
-### 3. Build the Bot (if using embedded mode)
+> **Important:** Use `https://` for your homeserver URL. Using `http://` can cause authentication failures due to HTTP redirects stripping the access token.
 
-```bash
-# The bot needs to be compiled from Rust source:
-cd /a0/usr/workdir/a0-matrix/matrix-bot/rust
-cargo build --release
-cp target/release/matrix-bot-rust ../../bin/
-cp target/release/set-display-name-rust ../../bin/
-```
-
-### 4. Start Services
+### 3. Start Services
 
 ```bash
 /a0/usr/workdir/a0-matrix/start.sh
 ```
 
-### 5. Configure MCP in Agent Zero
+### 4. Configure MCP in Agent Zero
 
 In Agent Zero **Settings → MCP/A2A**, add the Matrix MCP server:
 
@@ -103,17 +108,28 @@ In Agent Zero **Settings → MCP/A2A**, add the Matrix MCP server:
 {
   "mcpServers": {
     "matrix": {
-      "type": "streamable-http",
-      "url": "http://localhost:3000/mcp",
-      "headers": {
-        "matrix_access_token": "<your_access_token",
-        "matrix_homeserver_url": "https://example.org",
-        "matrix_user_id": "@your-id:example.org"
-      }
+      "url": "http://localhost:3000/mcp"
     }
   }
 }
 ```
+
+> **Note:** The MCP server URL uses `http://` (not `https://`) because it's a local connection inside the container. The MCP server reads Matrix credentials from its `.env` file — no need to pass them as headers.
+
+### 5. Test the Connection
+
+Verify the MCP server is healthy:
+
+```bash
+curl http://localhost:3000/health
+```
+
+Expected response:
+```json
+{"server":"matrix-mcp-server-r2","status":"healthy","user_id":"@your-bot:example.com","version":"0.1.1"}
+```
+
+To test the bot, use a different Matrix account to send a DM to your bot's user ID, or invite the bot to a room and mention it.
 
 ## Deployment Modes
 
@@ -170,7 +186,7 @@ Once configured, Agent Zero gains access to 20 Matrix tools:
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `MATRIX_HOMESERVER_URL` | ✅ | — | Matrix homeserver URL |
+| `MATRIX_HOMESERVER_URL` | ✅ | — | Matrix homeserver URL (use `https://`) |
 | `MATRIX_USER_ID` | ✅ | — | Bot's Matrix user ID |
 | `MATRIX_ACCESS_TOKEN` | ✅ | — | Authentication token |
 | `MATRIX_DEVICE_ID` | — | `AgentZeroBot` | Device ID for session |
@@ -188,11 +204,12 @@ Once configured, Agent Zero gains access to 20 Matrix tools:
 ```
 a0-matrix/
 ├── plugin.yaml              # Plugin manifest
-├── hooks.py                 # Install/uninstall lifecycle
+├── hooks.py                 # Install/uninstall lifecycle (downloads binaries)
+├── install.sh               # Standalone binary installer (manual re-download)
 ├── default_config.yaml      # Default settings
 ├── .env.example             # Configuration template
 ├── docker-compose.yml       # External deployment mode
-├── matrix-bot/              # Matrix bot (Rust)
+├── matrix-bot/              # Matrix bot (Rust source, for reference)
 │   ├── Dockerfile           # Container build
 │   └── rust/                # Rust source
 │       ├── Cargo.toml
@@ -204,9 +221,70 @@ a0-matrix/
 │   ├── start.sh             # Start services
 │   ├── stop.sh              # Stop services
 │   └── status.sh            # Health check
-├── index.yaml               # a0-plugins index entry
 ├── README.md
 └── LICENSE
+```
+
+### Runtime Working Directory
+
+After installation, the plugin creates a working directory at `/a0/usr/workdir/a0-matrix/`:
+
+```
+/a0/usr/workdir/a0-matrix/
+├── bin/                         # Pre-built binaries (auto-downloaded)
+│   ├── matrix-mcp-server-r2     # MCP server binary
+│   ├── matrix-bot-rust          # Matrix bot binary
+│   └── set-display-name-rust    # Display name utility
+├── data/                        # Persistent bot data
+├── logs/                        # Service logs
+│   ├── mcp-server.log
+│   └── bot.log
+├── scripts/                     # Service management
+├── .env                         # Your configuration (from .env.example)
+├── install.sh                   # Re-download binaries if needed
+├── start.sh                     # Start services
+└── stop.sh                      # Stop services
+```
+
+## Troubleshooting
+
+### `M_MISSING_TOKEN` error on startup
+
+The homeserver URL is probably using `http://` instead of `https://`. HTTP requests get redirected, and the `Authorization` header is stripped during the redirect.
+
+**Fix:** Change `MATRIX_HOMESERVER_URL` in `.env` to use `https://`.
+
+### SSL error when connecting Agent Zero to MCP
+
+```
+httpx.ConnectError: [SSL] record layer failure
+```
+
+The MCP server URL in Agent Zero settings is using `https://` but the MCP server runs plain HTTP.
+
+**Fix:** Use `http://localhost:3000/mcp` (not `https://`) in Settings → MCP/A2A.
+
+### `Got the same sync response twice` in MCP server logs
+
+This is a normal INFO message from the `matrix_sdk` library. It means the sync loop is running but the homeserver has no new events. **Not an error.**
+
+### `Consecutive empty syncs` in bot logs
+
+The bot hasn't received any messages yet. It periodically resets its sync token as a precaution. **This is normal idle behavior.**
+
+### Binaries not found after install
+
+If automatic download failed during plugin install, run the installer manually:
+
+```bash
+/a0/usr/workdir/a0-matrix/install.sh
+```
+
+Or delete existing binaries and re-run to force a fresh download:
+
+```bash
+rm -f /a0/usr/workdir/a0-matrix/bin/*
+/a0/usr/workdir/a0-matrix/install.sh
 ```
 
 ## Generating a Matrix Access Token
