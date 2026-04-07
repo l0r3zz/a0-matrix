@@ -5,6 +5,7 @@ Downloads pre-built binaries from GitHub Releases (no Docker or Rust
 toolchain required inside the Agent Zero container).
 """
 
+import json
 import os
 import shutil
 import subprocess
@@ -88,14 +89,15 @@ def install():
         d.mkdir(parents=True, exist_ok=True)
     print(f"[a0-matrix] Created directories under {WORKDIR}")
 
-    # 2. Copy configuration templates
-    env_example = PLUGIN_DIR / ".env.example"
-    if env_example.exists() and not ENV_FILE.exists():
-        shutil.copy2(env_example, ENV_FILE)
-        print(f"[a0-matrix] Copied .env.example → {ENV_FILE}")
-        print(f"[a0-matrix] ⚠️  Edit {ENV_FILE} with your Matrix credentials before starting!")
-    elif ENV_FILE.exists():
-        print(f"[a0-matrix] .env already exists at {ENV_FILE}, skipping")
+    # 2. Pre-create config.json with restrictive permissions
+    config_file = PLUGIN_DIR / "config.json"
+    if not config_file.exists():
+        fd = os.open(str(config_file), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w") as f:
+            json.dump({}, f)
+        print(f"[a0-matrix] Created {config_file} (0600)")
+    else:
+        print(f"[a0-matrix] config.json already exists, skipping")
 
     # 3. Download pre-built binaries from GitHub Releases
     print("[a0-matrix] Downloading pre-built binaries from GitHub Releases...")
@@ -112,6 +114,8 @@ def install():
             shutil.rmtree(scripts_dst)
         shutil.copytree(scripts_src, scripts_dst)
         for script in scripts_dst.glob("*.sh"):
+            script.chmod(0o755)
+        for script in scripts_dst.glob("*.py"):
             script.chmod(0o755)
         print(f"[a0-matrix] Copied scripts → {scripts_dst}")
 
@@ -133,9 +137,10 @@ def install():
     print("[a0-matrix] ✅ Installation complete!")
     print("")
     print("[a0-matrix] Next steps:")
-    print(f"  1. Edit {ENV_FILE} with your Matrix credentials")
-    print(f"  2. Run: {WORKDIR}/start.sh")
-    print(f"  3. Configure MCP in Agent Zero Settings → MCP/A2A")
+    print(f"  1. Open Agent Zero Settings → Plugins → a0-matrix → ⚙️")
+    print(f"  2. Enter your Matrix homeserver URL, bot user ID, and access token")
+    print(f"  3. Click Save, then run: {WORKDIR}/start.sh")
+    print(f"  4. Configure MCP in Agent Zero Settings → MCP/A2A")
     print(f"     URL: http://localhost:3000/mcp")
     print("")
 

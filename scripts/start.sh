@@ -24,10 +24,18 @@ log()  { echo -e "${GREEN}[a0-matrix]${NC} $*"; }
 warn() { echo -e "${YELLOW}[a0-matrix]${NC} $*"; }
 err()  { echo -e "${RED}[a0-matrix]${NC} $*" >&2; }
 
+# Generate .env from config.json (auto-detects A0 API key)
+CONFIG_TO_ENV="$BASE_DIR/scripts/config_to_env.py"
+if [[ -f "$CONFIG_TO_ENV" ]]; then
+    log "Generating .env from plugin config..."
+    python3 "$CONFIG_TO_ENV" || true
+fi
+
 # Ensure .env exists
 if [[ ! -f "$ENV_FILE" ]]; then
     err ".env not found at $ENV_FILE"
-    err "Copy .env.example and fill in your Matrix credentials first."
+    err "Configure the plugin via: Agent Zero Settings → Plugins → a0-matrix → ⚙️"
+    err "Or copy .env.example and fill in your Matrix credentials."
     exit 1
 fi
 

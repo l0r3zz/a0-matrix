@@ -1,27 +1,15 @@
 # a0-matrix Default Configuration
 # These values are loaded when the plugin is initialized.
-# Override per-agent via Agent Zero Settings UI.
+# Configure via Agent Zero Settings UI → Plugins → a0-matrix → ⚙️
 
-# Matrix connection
-matrix_homeserver_url: "http://localhost:8008"
-matrix_user_id: ""
-matrix_access_token: ""
-matrix_device_id: "AgentZeroBot"
-
-# MCP server
-mcp_port: 3000
-mcp_server_version: "latest"
+# Matrix connection (REQUIRED)
+matrix:
+  homeserver_url: ""
+  user_id: ""
+  access_token: ""
+  device_id: "A0-bot"
 
 # Bot behavior
-bot_display_name: "Agent Zero"
-agent_identity: "Agent Zero"
-sync_timeout_ms: 30000
-trigger_prefix: ""
-
-# Agent Zero API (for bot → agent communication)
-a0_api_url: "http://localhost:80/api/api_message"
-a0_api_key: ""
-a0_agent_profile: ""
-
-# Logging
-rust_log: "info"
+bot:
+  display_name: "Agent Zero"
+  agent_identity: "Agent Zero"

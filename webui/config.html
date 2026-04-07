@@ -1,0 +1,127 @@
+<div x-data="{
+    showToken: false,
+    a0ApiKey: '',
+    a0ApiKeyLoading: true,
+    copySuccess: false,
+    init() {
+        // Initialize missing config keys with defaults
+        if (!config.matrix) config.matrix = {};
+        if (!config.matrix.homeserver_url) config.matrix.homeserver_url = '';
+        if (!config.matrix.user_id) config.matrix.user_id = '';
+        if (!config.matrix.access_token) config.matrix.access_token = '';
+        if (!config.matrix.device_id) config.matrix.device_id = 'A0-bot';
+        if (!config.bot) config.bot = {};
+        if (!config.bot.display_name) config.bot.display_name = 'Agent Zero';
+        if (!config.bot.agent_identity) config.bot.agent_identity = 'Agent Zero';
+
+        // Auto-detect A0 API key from Agent Zero settings
+        this.a0ApiKeyLoading = true;
+        fetch('/get_settings')
+            .then(r => r.json())
+            .then(data => {
+                this.a0ApiKey = data.mcp_server_token || '(not yet generated — restart Agent Zero)';
+                this.a0ApiKeyLoading = false;
+            })
+            .catch(() => {
+                this.a0ApiKey = '(unable to detect — check Agent Zero settings)';
+                this.a0ApiKeyLoading = false;
+            });
+    },
+    copyApiKey() {
+        navigator.clipboard.writeText(this.a0ApiKey).then(() => {
+            this.copySuccess = true;
+            setTimeout(() => this.copySuccess = false, 2000);
+        });
+    }
+}">
+
+    <!-- Matrix Connection -->
+    <div class="section-title">Matrix Connection</div>
+
+    <div class="field">
+        <div class="field-label">
+            <div class="field-title">Homeserver URL</div>
+            <div class="field-description">Your Matrix homeserver URL (e.g., https://matrix.org). Use HTTPS to avoid authentication failures.</div>
+        </div>
+        <div class="field-control">
+            <input type="text" x-model="config.matrix.homeserver_url" placeholder="https://matrix.org">
+        </div>
+    </div>
+
+    <div class="field">
+        <div class="field-label">
+            <div class="field-title">Bot User ID</div>
+            <div class="field-description">Full Matrix user ID for the bot account (e.g., @my-bot:matrix.org)</div>
+        </div>
+        <div class="field-control">
+            <input type="text" x-model="config.matrix.user_id" placeholder="@bot:matrix.org">
+        </div>
+    </div>
+
+    <div class="field">
+        <div class="field-label">
+            <div class="field-title">Access Token</div>
+            <div class="field-description">
+                Bot's Matrix access token. Generate via:
+                <code>curl -X POST https://your-server/_matrix/client/v3/login -H 'Content-Type: application/json' -d '{"type":"m.login.password","user":"bot","password":"secret"}'</code>
+            </div>
+        </div>
+        <div class="field-control" style="position: relative;">
+            <input :type="showToken ? 'text' : 'password'" x-model="config.matrix.access_token" placeholder="mat_...">
+            <button type="button" @click="showToken = !showToken" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 14px;" x-text="showToken ? '🙈' : '👁️'"></button>
+        </div>
+    </div>
+
+    <div class="field">
+        <div class="field-label">
+            <div class="field-title">Device ID</div>
+            <div class="field-description">Matrix device identifier for this bot session</div>
+        </div>
+        <div class="field-control">
+            <input type="text" x-model="config.matrix.device_id" placeholder="A0-bot">
+        </div>
+    </div>
+
+    <!-- Bot Settings -->
+    <div class="section-title">Bot Settings</div>
+
+    <div class="field">
+        <div class="field-label">
+            <div class="field-title">Display Name</div>
+            <div class="field-description">Name shown in Matrix rooms. Also used as the trigger prefix in group chats.</div>
+        </div>
+        <div class="field-control">
+            <input type="text" x-model="config.bot.display_name" placeholder="Agent Zero">
+        </div>
+    </div>
+
+    <div class="field">
+        <div class="field-label">
+            <div class="field-title">Agent Identity</div>
+            <div class="field-description">Identity string used in system prompts when the bot forwards messages to Agent Zero</div>
+        </div>
+        <div class="field-control">
+            <input type="text" x-model="config.bot.agent_identity" placeholder="Agent Zero">
+        </div>
+    </div>
+
+    <!-- Agent Zero API Key (auto-detected, read-only) -->
+    <div class="section-title">Agent Zero API Key</div>
+
+    <div class="field">
+        <div class="field-label">
+            <div class="field-title">Auto-detected API Key</div>
+            <div class="field-description">
+                This key is auto-generated by Agent Zero and used by the bot to forward messages.
+                It is automatically applied when services start — no manual configuration needed.
+                <br><br>
+                <em>If the key shows as empty, restart Agent Zero first.</em>
+            </div>
+        </div>
+        <div class="field-control" style="display: flex; gap: 8px; align-items: center;">
+            <input type="text" :value="a0ApiKeyLoading ? 'Detecting...' : a0ApiKey" readonly style="background: #f5f5f5; color: #666; font-family: monospace;">
+            <button type="button" @click="copyApiKey()" :disabled="a0ApiKeyLoading" style="white-space: nowrap; padding: 6px 12px; cursor: pointer;" x-text="copySuccess ? '✅ Copied!' : '📋 Copy'"></button>
+        </div>
+    </div>
+
+</div>
