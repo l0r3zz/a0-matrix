@@ -96,18 +96,21 @@ nano .env
 
 ### 3. Set the Agent Zero API Key
 
-The Matrix bot needs an API key to forward messages to Agent Zero.
+The Matrix bot needs an API key to forward messages to Agent Zero's `/api/api_message` endpoint.
 
-1. In the Agent Zero web UI, go to **Settings → External**
-2. Find **Agent0 API Key** and set it to a secure secret (e.g., generate one with `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`)
-3. Copy that same key into your `.env`:
+Agent Zero **auto-generates** this key at startup — it's derived from the container's persistent runtime ID and cannot be set manually through the UI. To find it:
+
+1. Open the Agent Zero web UI
+2. Go to **Settings → External**
+3. Copy the value shown in the **Agent0 API Key** field
+4. Paste it into your `.env`:
 
 ```bash
-# Replace YOUR_KEY with the value you set in Agent Zero Settings
-sed -i 's/^A0_API_KEY=.*/A0_API_KEY=YOUR_KEY/' /a0/usr/workdir/a0-matrix/.env
+# Replace <COPIED_KEY> with the value from Agent Zero Settings → External
+sed -i 's/^A0_API_KEY=.*/A0_API_KEY=<COPIED_KEY>/' /a0/usr/workdir/a0-matrix/.env
 ```
 
-> Both sides **must have the same key** — the bot sends it as `X-API-KEY` when forwarding Matrix messages to Agent Zero's `/api/api_message` endpoint.
+> **Note:** The key changes if the Agent Zero container is recreated with a new runtime ID. If the bot starts returning 401 errors, re-copy the key from Settings.
 
 ### 4. Start Services
 
