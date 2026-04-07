@@ -19,7 +19,7 @@ sync_timeout_ms: 30000
 trigger_prefix: ""
 
 # Agent Zero API (for bot → agent communication)
-a0_api_url: "http://localhost:80/api_message"
+a0_api_url: "http://localhost:80/api/api_message"
 a0_api_key: ""
 a0_agent_profile: ""
 

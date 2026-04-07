@@ -94,13 +94,28 @@ nano .env
 
 > **Important:** Use `https://` for your homeserver URL. Using `http://` can cause authentication failures due to HTTP redirects stripping the access token.
 
-### 3. Start Services
+### 3. Set the Agent Zero API Key
+
+The Matrix bot needs an API key to forward messages to Agent Zero.
+
+1. In the Agent Zero web UI, go to **Settings → External**
+2. Find **Agent0 API Key** and set it to a secure secret (e.g., generate one with `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`)
+3. Copy that same key into your `.env`:
+
+```bash
+# Replace YOUR_KEY with the value you set in Agent Zero Settings
+sed -i 's/^A0_API_KEY=.*/A0_API_KEY=YOUR_KEY/' /a0/usr/workdir/a0-matrix/.env
+```
+
+> Both sides **must have the same key** — the bot sends it as `X-API-KEY` when forwarding Matrix messages to Agent Zero's `/api/api_message` endpoint.
+
+### 4. Start Services
 
 ```bash
 /a0/usr/workdir/a0-matrix/start.sh
 ```
 
-### 4. Configure MCP in Agent Zero
+### 5. Configure MCP in Agent Zero
 
 In Agent Zero **Settings → MCP/A2A**, add the Matrix MCP server:
 
@@ -108,13 +123,7 @@ In Agent Zero **Settings → MCP/A2A**, add the Matrix MCP server:
 {
   "mcpServers": {
     "matrix": {
-      "type": "streamable-http",
-      "url": "http://localhost:3000/mcp",
-      "headers": {
-        "matrix_access_token": "<matrix-access-token",
-        "matrix_homeserver_url": "https://example.org",
-        "matrix_user_id": "@matrix-id:example.org"
-      }
+      "url": "http://localhost:3000/mcp"
     }
   }
 }
@@ -122,7 +131,7 @@ In Agent Zero **Settings → MCP/A2A**, add the Matrix MCP server:
 
 > **Note:** The MCP server URL uses `http://` (not `https://`) because it's a local connection inside the container. The MCP server reads Matrix credentials from its `.env` file — no need to pass them as headers.
 
-### 5. Test the Connection
+### 6. Test the Connection
 
 Verify the MCP server is healthy:
 
