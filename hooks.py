@@ -1,23 +1,20 @@
 """a0-matrix Plugin Lifecycle Hooks
 
 Handles installation and uninstallation of the Matrix integration plugin.
-Supports two deployment modes:
-  - Embedded: Services run inside the Agent Zero container as processes
-  - External: Services run as separate Docker containers via docker-compose
+Downloads pre-built binaries from GitHub Releases (no Docker or Rust
+toolchain required inside the Agent Zero container).
 """
 
 import os
 import shutil
 import subprocess
-import json
+import urllib.request
 from pathlib import Path
+
 # Plugin paths
 PLUGIN_DIR = Path(__file__).parent
 
 # Derive the Agent Zero workdir dynamically.
-# Priority:
-#   1. A0_WORKDIR env var (set by custom or non-standard deployments)
-#   2. Standard Agent Zero default: /a0/usr/workdir
 _A0_WORKDIR = Path(os.environ.get("A0_WORKDIR", "/a0/usr/workdir"))
 WORKDIR = _A0_WORKDIR / "a0-matrix"
 BIN_DIR  = WORKDIR / "bin"
@@ -25,9 +22,54 @@ DATA_DIR = WORKDIR / "data"
 LOG_DIR  = WORKDIR / "logs"
 ENV_FILE = WORKDIR / ".env"
 
-# GHCR image for the MCP server
-MCP_SERVER_IMAGE = "ghcr.io/l0r3zz/matrix-mcp-server-r2"
-MCP_SERVER_VERSION = "latest"
+# GitHub Release URLs for pre-built binaries
+MCP_SERVER_RELEASE_URL = (
+    "https://github.com/l0r3zz/matrix-mcp-server-r2/releases/latest/download"
+)
+BOT_RELEASE_URL = (
+    "https://github.com/l0r3zz/agent-matrix/releases/latest/download"
+)
+
+# Binary manifest: (name, download_url, local_dest)
+BINARIES = [
+    ("matrix-mcp-server-r2", f"{MCP_SERVER_RELEASE_URL}/matrix-mcp-server-r2",
+     BIN_DIR / "matrix-mcp-server-r2"),
+    ("matrix-bot-rust", f"{BOT_RELEASE_URL}/matrix-bot-rust",
+     BIN_DIR / "matrix-bot-rust"),
+    ("set-display-name-rust", f"{BOT_RELEASE_URL}/set-display-name-rust",
+     BIN_DIR / "set-display-name-rust"),
+]
+
+
+def _download_binary(name: str, url: str, dest: Path) -> bool:
+    """Download a single binary from a GitHub Release URL."""
+    if dest.exists():
+        print(f"[a0-matrix] {name} already exists at {dest}, skipping")
+        return True
+    print(f"[a0-matrix] Downloading {name}...")
+    try:
+        urllib.request.urlretrieve(url, dest)
+        dest.chmod(0o755)
+        size_mb = dest.stat().st_size / (1024 * 1024)
+        print(f"[a0-matrix] ✅ {name} → {dest} ({size_mb:.1f} MB)")
+        return True
+    except Exception as e:
+        # Clean up partial download
+        if dest.exists():
+            dest.unlink()
+        print(f"[a0-matrix] ⚠️  Failed to download {name}: {e}")
+        print(f"[a0-matrix]    URL: {url}")
+        return False
+
+
+def _download_binaries() -> int:
+    """Download all pre-built binaries. Returns count of failures."""
+    BIN_DIR.mkdir(parents=True, exist_ok=True)
+    failures = 0
+    for name, url, dest in BINARIES:
+        if not _download_binary(name, url, dest):
+            failures += 1
+    return failures
 
 
 def install():
@@ -36,9 +78,8 @@ def install():
     Steps:
     1. Create working directories
     2. Copy configuration templates
-    3. Copy bot source and scripts
-    4. Attempt to pull MCP server binary from GHCR image
-    5. Set up startup script
+    3. Download pre-built binaries from GitHub Releases
+    4. Copy scripts and set up management tools
     """
     print("[a0-matrix] Starting installation...")
 
@@ -56,99 +97,38 @@ def install():
     elif ENV_FILE.exists():
         print(f"[a0-matrix] .env already exists at {ENV_FILE}, skipping")
 
-    # 3. Copy bot source and scripts
-    bot_src = PLUGIN_DIR / "matrix-bot"
-    bot_dst = WORKDIR / "matrix-bot"
-    if bot_src.exists():
-        if bot_dst.exists():
-            shutil.rmtree(bot_dst)
-        shutil.copytree(bot_src, bot_dst)
-        print(f"[a0-matrix] Copied matrix-bot source → {bot_dst}")
+    # 3. Download pre-built binaries from GitHub Releases
+    print("[a0-matrix] Downloading pre-built binaries from GitHub Releases...")
+    failures = _download_binaries()
+    if failures > 0:
+        print(f"[a0-matrix] ⚠️  {failures} binary download(s) failed.")
+        print("[a0-matrix]    You can download them manually or run install.sh later.")
 
-    # Copy scripts
+    # 4. Copy scripts
     scripts_src = PLUGIN_DIR / "scripts"
     scripts_dst = WORKDIR / "scripts"
     if scripts_src.exists():
         if scripts_dst.exists():
             shutil.rmtree(scripts_dst)
         shutil.copytree(scripts_src, scripts_dst)
-        # Make scripts executable
         for script in scripts_dst.glob("*.sh"):
             script.chmod(0o755)
         print(f"[a0-matrix] Copied scripts → {scripts_dst}")
 
-    # 4. Try to extract MCP server binary from GHCR image
-    print("[a0-matrix] Attempting to pull MCP server from GHCR...")
-    mcp_binary = BIN_DIR / "matrix-mcp-server"
-    try:
-        # Check if docker is available
-        result = subprocess.run(
-            ["docker", "--version"],
-            capture_output=True, text=True, timeout=10
-        )
-        if result.returncode == 0:
-            image = f"{MCP_SERVER_IMAGE}:{MCP_SERVER_VERSION}"
-            print(f"[a0-matrix] Pulling {image}...")
-            subprocess.run(
-                ["docker", "pull", image],
-                capture_output=True, text=True, timeout=300
-            )
-          
-            container_name = f"a0-matrix-extract-{os.getpid()}"
-            # Extract binary from image using three discrete steps
-            # Step 1: create a stopped container from the image
-            create_result = subprocess.run(
-                ["docker", "create", "--name", container_name, image],
-                capture_output=True, text=True, timeout=60
-            )
-            
-            if create_result.returncode != 0:
-                raise RuntimeError(f"docker create failed: {create_result.stderr.strip()}")
+    # Copy startup/stop shortcuts to workdir root
+    for script_name in ["start.sh", "stop.sh"]:
+        src = PLUGIN_DIR / "scripts" / script_name
+        if src.exists():
+            dst = WORKDIR / script_name
+            shutil.copy2(src, dst)
+            dst.chmod(0o755)
 
-            try:
-                # Step 2: copy the binary out of the container
-                cp_result = subprocess.run(
-                    ["docker", "cp",
-                     f"{container_name}/app/matrix-mcp-server-r2",
-                     str(mcp_binary)],
-                    capture_output=True, text=True, timeout=60
-                )
-                if cp_result.returncode != 0:
-                    raise RuntimeError(f"docker cp failed: {cp_result.stderr.strip()}")
-            finally:
-                # Step 3: always remove the temporary container
-                subprocess.run(
-                    ["docker", "rm", container_name],
-                    capture_output=True, text=True, timeout=30
-                )
-
-            if mcp_binary.exists():
-                mcp_binary.chmod(0o755)
-                print(f"[a0-matrix] ✅ MCP server binary extracted → {mcp_binary}")
-            else:
-                print("[a0-matrix] ⚠️  Binary not found after extraction")
-                print("[a0-matrix] MCP server will need to be run via docker-compose")
-        else:
-            print("[a0-matrix] Docker not available; MCP server needs manual setup")
-    except RuntimeError as e:
-        print(f"[a0-matrix] ⚠️  Could not extract binary: {e}")
-        print("[a0-matrix] MCP server will need to be run via docker-compose")
-    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-        print(f"[a0-matrix] Docker extraction skipped: {e}")
-        print("[a0-matrix] You can run the MCP server via docker-compose or install manually")
-
-    # 5. Copy startup/management scripts to workdir
-    startup_script = PLUGIN_DIR / "scripts" / "start.sh"
-    if startup_script.exists():
-        dst = WORKDIR / "start.sh"
-        shutil.copy2(startup_script, dst)
-        dst.chmod(0o755)
-
-    stop_script = PLUGIN_DIR / "scripts" / "stop.sh"
-    if stop_script.exists():
-        dst = WORKDIR / "stop.sh"
-        shutil.copy2(stop_script, dst)
-        dst.chmod(0o755)
+    # Copy install.sh to workdir for manual re-runs
+    install_src = PLUGIN_DIR / "install.sh"
+    if install_src.exists():
+        install_dst = WORKDIR / "install.sh"
+        shutil.copy2(install_src, install_dst)
+        install_dst.chmod(0o755)
 
     print("[a0-matrix] ✅ Installation complete!")
     print("")
@@ -156,6 +136,7 @@ def install():
     print(f"  1. Edit {ENV_FILE} with your Matrix credentials")
     print(f"  2. Run: {WORKDIR}/start.sh")
     print(f"  3. Configure MCP in Agent Zero Settings → MCP/A2A")
+    print(f"     URL: http://localhost:3000/mcp")
     print("")
 
 
