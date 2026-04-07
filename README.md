@@ -108,7 +108,13 @@ In Agent Zero **Settings → MCP/A2A**, add the Matrix MCP server:
 {
   "mcpServers": {
     "matrix": {
-      "url": "http://localhost:3000/mcp"
+      "type": "streamable-http",
+      "url": "http://localhost:3000/mcp",
+      "headers": {
+        "matrix_access_token": "<matrix-access-token",
+        "matrix_homeserver_url": "https://example.org",
+        "matrix_user_id": "@matrix-id:example.org"
+      }
     }
   }
 }
